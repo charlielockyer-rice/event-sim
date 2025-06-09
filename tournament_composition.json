@@ -1,0 +1,25 @@
+{
+  "total_players": 3700,
+  "real_players": 713,
+  "fake_players": 2987,
+  "composition": {
+    "real_na": 600,
+    "real_eu": 50,
+    "real_la": 50,
+    "real_oc": 10,
+    "real_mesa": 3,
+    "fake_na": 2987
+  },
+  "cp_stats": {
+    "real_players": {
+      "min": 332,
+      "max": 2020,
+      "avg": 615.7461430575036
+    },
+    "fake_players": {
+      "min": 50,
+      "max": 331,
+      "avg": 186.77301640441914
+    }
+  }
+}

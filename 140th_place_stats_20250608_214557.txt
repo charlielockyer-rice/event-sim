@@ -1,0 +1,27 @@
+140TH PLACE CHAMPIONSHIP POINTS EXPERIMENT
+Generated: 2025-06-08 21:45:57
+==================================================
+
+Simulations: 10
+Tournament size: 1,000
+Initial 140th place: 662 CP
+
+STATISTICS:
+Mean: 717.2 CP
+Median: 719.5 CP
+Min: 710 CP
+Max: 720 CP
+Std Dev: 3.6 CP
+Range: 10 CP
+
+RAW VALUES:
+Simulation 1: 719 CP
+Simulation 2: 710 CP
+Simulation 3: 720 CP
+Simulation 4: 712 CP
+Simulation 5: 720 CP
+Simulation 6: 720 CP
+Simulation 7: 717 CP
+Simulation 8: 714 CP
+Simulation 9: 720 CP
+Simulation 10: 720 CP

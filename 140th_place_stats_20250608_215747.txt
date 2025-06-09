@@ -1,0 +1,117 @@
+140TH PLACE CHAMPIONSHIP POINTS EXPERIMENT
+Generated: 2025-06-08 21:57:47
+==================================================
+
+Simulations: 100
+Tournament size: 3,700
+Initial 140th place: 662 CP
+
+STATISTICS:
+Mean: 714.5 CP
+Median: 717.0 CP
+Min: 700 CP
+Max: 730 CP
+Std Dev: 7.0 CP
+Range: 30 CP
+
+RAW VALUES:
+Simulation 1: 715 CP
+Simulation 2: 707 CP
+Simulation 3: 720 CP
+Simulation 4: 720 CP
+Simulation 5: 720 CP
+Simulation 6: 720 CP
+Simulation 7: 710 CP
+Simulation 8: 720 CP
+Simulation 9: 710 CP
+Simulation 10: 700 CP
+Simulation 11: 705 CP
+Simulation 12: 725 CP
+Simulation 13: 720 CP
+Simulation 14: 717 CP
+Simulation 15: 717 CP
+Simulation 16: 707 CP
+Simulation 17: 716 CP
+Simulation 18: 707 CP
+Simulation 19: 717 CP
+Simulation 20: 702 CP
+Simulation 21: 720 CP
+Simulation 22: 702 CP
+Simulation 23: 705 CP
+Simulation 24: 720 CP
+Simulation 25: 720 CP
+Simulation 26: 720 CP
+Simulation 27: 707 CP
+Simulation 28: 710 CP
+Simulation 29: 720 CP
+Simulation 30: 720 CP
+Simulation 31: 720 CP
+Simulation 32: 705 CP
+Simulation 33: 725 CP
+Simulation 34: 717 CP
+Simulation 35: 705 CP
+Simulation 36: 705 CP
+Simulation 37: 715 CP
+Simulation 38: 720 CP
+Simulation 39: 707 CP
+Simulation 40: 722 CP
+Simulation 41: 705 CP
+Simulation 42: 720 CP
+Simulation 43: 720 CP
+Simulation 44: 716 CP
+Simulation 45: 715 CP
+Simulation 46: 716 CP
+Simulation 47: 720 CP
+Simulation 48: 720 CP
+Simulation 49: 720 CP
+Simulation 50: 719 CP
+Simulation 51: 705 CP
+Simulation 52: 724 CP
+Simulation 53: 710 CP
+Simulation 54: 704 CP
+Simulation 55: 720 CP
+Simulation 56: 720 CP
+Simulation 57: 705 CP
+Simulation 58: 720 CP
+Simulation 59: 720 CP
+Simulation 60: 705 CP
+Simulation 61: 715 CP
+Simulation 62: 702 CP
+Simulation 63: 712 CP
+Simulation 64: 719 CP
+Simulation 65: 722 CP
+Simulation 66: 720 CP
+Simulation 67: 720 CP
+Simulation 68: 720 CP
+Simulation 69: 724 CP
+Simulation 70: 705 CP
+Simulation 71: 719 CP
+Simulation 72: 705 CP
+Simulation 73: 720 CP
+Simulation 74: 715 CP
+Simulation 75: 705 CP
+Simulation 76: 720 CP
+Simulation 77: 719 CP
+Simulation 78: 720 CP
+Simulation 79: 720 CP
+Simulation 80: 717 CP
+Simulation 81: 700 CP
+Simulation 82: 715 CP
+Simulation 83: 707 CP
+Simulation 84: 717 CP
+Simulation 85: 705 CP
+Simulation 86: 720 CP
+Simulation 87: 704 CP
+Simulation 88: 705 CP
+Simulation 89: 705 CP
+Simulation 90: 710 CP
+Simulation 91: 721 CP
+Simulation 92: 714 CP
+Simulation 93: 720 CP
+Simulation 94: 730 CP
+Simulation 95: 719 CP
+Simulation 96: 720 CP
+Simulation 97: 710 CP
+Simulation 98: 715 CP
+Simulation 99: 715 CP
+Simulation 100: 717 CP
