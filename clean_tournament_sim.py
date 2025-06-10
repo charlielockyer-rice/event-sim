@@ -131,8 +131,6 @@ class NAStandingsManager:
         # Parse current finishes
         current_finishes = self.parse_cp_finishes(player_row['CP Finishes'])
         
-        print(f"🎯 Updating {player_name}: current finishes = {current_finishes}, new points = {new_points}")
-        
         # Apply 5-finish rule
         if len(current_finishes) < 5:
             # Less than 5 finishes - add new points
@@ -144,9 +142,8 @@ class NAStandingsManager:
                 # Replace lowest finish
                 current_finishes.remove(min_finish)
                 current_finishes.append(new_points)
-                print(f"   Replaced {min_finish} with {new_points}")
             else:
-                print(f"   New points {new_points} not better than lowest {min_finish}, no change")
+                return False  # No change made
         
         # Sort finishes in descending order
         current_finishes.sort(reverse=True)
@@ -164,17 +161,12 @@ class NAStandingsManager:
         new_total_cp = new_top_x_cp + locals_cp
         self.na_standings.loc[player_idx, 'Total_CP'] = new_total_cp
         
-        print(f"   New Top X CP: {new_top_x_cp}, New Total CP: {new_total_cp}")
         return True
     
     def process_tournament_results(self, tournament_results):
         """Process tournament results and update NA player standings"""
         if tournament_results is None:
-            print("❌ No tournament results to process")
             return
-        
-        print(f"\n🏆 PROCESSING TOURNAMENT RESULTS FOR NA PLAYERS")
-        print(f"   Total players in tournament: {len(tournament_results)}")
         
         na_updates = 0
         
@@ -199,12 +191,9 @@ class NAStandingsManager:
                     points = self.get_championship_points(placement)
                     
                     if points:
-                        print(f"   {player_name}: Place {placement} = {points} points")
                         success = self.update_player_finishes(player_name, points)
                         if success:
                             na_updates += 1
-            
-        print(f"✅ Updated {na_updates} NA players with new championship points")
         
     def _process_individual_player(self, player_name, placement):
         """Process an individual player's tournament result"""
@@ -214,7 +203,6 @@ class NAStandingsManager:
             points = self.get_championship_points(placement)
             
             if points:
-                print(f"   {player_name}: Place {placement} = {points} points")
                 success = self.update_player_finishes(player_name, points)
                 return success
         return False
@@ -398,10 +386,20 @@ class TournamentSimulator:
         else:
             return 'player2_wins', is_brutal_matchup
 
-    def load_players(self, num_players=3700):
-        """Load players from database"""
+    def load_players(self, num_players=None):
+        """Load players from database with variable tournament size"""
+        if num_players is None:
+            # Random tournament size between 3700-4000 as requested
+            num_players = random.randint(3700, 4000)
+        
         db = PlayerDatabase(self.db_path)
         all_players = db.load_all_players()
+        
+        # Ensure we have enough players
+        if len(all_players) < num_players:
+            print(f"⚠️ Database only has {len(all_players)} players, requesting {num_players}")
+            num_players = len(all_players)
+        
         players = all_players[:num_players]
         
         # Create DataFrame
@@ -619,7 +617,7 @@ class TournamentSimulator:
         if verbose:
             print(f"Completed {match_count} matches, {len(pairings) - match_count} byes, {brutal_count} brutal matchups")
 
-    def run_tournament(self, num_players=3700, verbose=True):
+    def run_tournament(self, num_players=None, verbose=True, save_results=False):
         """Run complete tournament"""
         # Set seed
         seed = int(datetime.now().timestamp()) % 1000000
@@ -627,56 +625,32 @@ class TournamentSimulator:
         
         if verbose:
             print(f"🎮 TOURNAMENT SIMULATION (seed: {seed})")
-            print("=" * 50)
-            print("🔥 BRUTAL penalties for low CP vs high CP matchups")
-            print("📍 15% tie rate maintained as requested")
         
         # Load players
         df = self.load_players(num_players)
         
         # Day 1: 9 rounds
-        if verbose:
-            print(f"\n🌅 DAY 1: Swiss Rounds")
-            print("=" * 30)
-        
         for round_num in range(1, 10):
-            self.simulate_round(df, round_num, verbose=verbose)
+            self.simulate_round(df, round_num, verbose=False)
         
         # Check advancement (19+ points)
         advancing = df[df['match_points'] >= 19]
         low_cp_advancing = len(advancing[advancing['cp'] <= 331])
         
-        if verbose:
-            print(f"\n📈 DAY 1 RESULTS:")
-            print(f"Advancing: {len(advancing)} players")
-            print(f"Low CP advancing: {low_cp_advancing} ({low_cp_advancing/len(advancing)*100:.1f}%)")
-        
         # Day 2: 4 more rounds
         df.loc[df['match_points'] < 19, 'is_active'] = False
         
-        if verbose:
-            print(f"\n🌆 DAY 2: Swiss Rounds")
-            print("=" * 30)
-        
         for round_num in range(10, 14):
-            self.simulate_round(df, round_num, verbose=verbose)
+            self.simulate_round(df, round_num, verbose=False)
         
         # Final standings
         final = df[df['is_active']].sort_values(['match_points', 'wins'], ascending=[False, False])
         
         if verbose:
-            print(f"\n🏆 FINAL RESULTS:")
             if len(final) > 0:
                 champ = final.iloc[0]
-                print(f"Champion: {champ['name']} ({champ['cp']} CP)")
-                print(f"Record: {champ['wins']}-{champ['losses']}-{champ['ties']}")
-                
-                # Top cuts
-                for cut in [8, 16, 32]:
-                    if cut <= len(final):
-                        top_cut = final.head(cut)
-                        low_in_cut = len(top_cut[top_cut['cp'] <= 331])
-                        print(f"Top {cut}: {low_in_cut} low CP ({low_in_cut/cut*100:.1f}%)")
+                low_in_top8 = len(final.head(8)[final.head(8)['cp'] <= 331]) if len(final) >= 8 else 0
+                print(f"🏆 Champion: {champ['name']} ({champ['cp']} CP) | Day 2: {len(final)} | Low CP in Top 8: {low_in_top8}")
         
         # Add final placement to all players
         final_with_placement = final.copy()
@@ -697,27 +671,162 @@ class TournamentSimulator:
         
         # Process NA standings if enabled
         if self.track_na_standings and self.na_manager:
-            if verbose:
-                print(f"\n" + "="*60)
             try:
                 self.na_manager.process_tournament_results(df)
-                
-                # Generate and show final rankings  
-                if verbose:
-                    final_rankings = self.na_manager.generate_final_rankings(top_n=25)
-                
             except Exception as e:
                 if verbose:
                     print(f"❌ Error processing NA standings: {e}")
+        
+        # Generate tournament ID
+        tournament_id = f"tournament_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Save tournament results to database (optional for speed)
+        if save_results:
+            try:
+                from player_database import PlayerDatabase
+                db = PlayerDatabase(self.db_path)
+                db.save_tournament_results(tournament_id, df, final_with_placement)
+            except Exception as e:
+                if verbose:
+                    print(f"⚠️ Could not save tournament results: {e}")
         
         # Store results
         self.tournament_result = {
             'players_df': df,
             'final_standings': final_with_placement,
-            'seed': seed
+            'seed': seed,
+            'tournament_id': tournament_id
         }
         
         return self.tournament_result
+
+    def quick_analysis(self, player_name):
+        """Quick analysis of a player's performance across all tournaments"""
+        try:
+            from player_database import PlayerDatabase
+            db = PlayerDatabase(self.db_path)
+            analysis = db.get_player_analysis(player_name)
+            
+            if not analysis:
+                print(f"❌ Player '{player_name}' not found in database")
+                return None
+            
+            player = analysis['player']
+            stats = analysis['stats']
+            
+            print(f"\n🔍 PLAYER ANALYSIS: {player.name}")
+            print("=" * 60)
+            print(f"💎 CP: {player.cp}")
+            print(f"📊 Tournament History: {stats['tournaments']} tournaments")
+            
+            if stats['tournaments'] > 0:
+                print(f"📈 Average Placement: {stats['avg_placement']:.1f}")
+                print(f"🏆 Best Placement: {stats['best_placement']}")
+                print(f"📉 Worst Placement: {stats['worst_placement']}")
+                print(f"🎯 Day 2 Rate: {stats['day2_rate']*100:.1f}%")
+                print(f"⚔️ Overall Record: {stats['total_wins']}-{stats['total_losses']}-{stats['total_ties']}")
+                
+                # Show recent tournaments
+                print(f"\n📋 RECENT TOURNAMENTS:")
+                recent = analysis['recent_tournaments'][-3:]  # Last 3
+                for tournament in recent:
+                    date = tournament['date'][:10]  # Just the date part
+                    placement = tournament['final_placement']
+                    record = f"{tournament['wins']}-{tournament['losses']}-{tournament['ties']}"
+                    day2 = "✅" if tournament['made_day2'] else "❌"
+                    print(f"   {date}: #{placement} ({record}) Day2: {day2}")
+            else:
+                print("   No tournament history found")
+            
+            return analysis
+            
+        except Exception as e:
+            print(f"❌ Error analyzing player: {e}")
+            return None
+
+    def get_top_performers(self, min_tournaments=3):
+        """Get top performing players from database"""
+        try:
+            from player_database import PlayerDatabase
+            db = PlayerDatabase(self.db_path)
+            performers = db.get_top_performers(min_tournaments=min_tournaments, metric='avg_placement')
+            
+            print(f"\n🏆 TOP PERFORMERS (min {min_tournaments} tournaments)")
+            print("=" * 80)
+            print(f"{'Rank':<4} {'Player':<25} {'CP':<5} {'Tournaments':<11} {'Avg Place':<9} {'Day 2%'}")
+            print("-" * 80)
+            
+            for i, performer in enumerate(performers[:20], 1):  # Top 20
+                name = performer['name'][:24]
+                cp = performer['cp']
+                stats = performer['stats']
+                
+                print(f"{i:<4} {name:<25} {cp:<5} {stats['tournaments']:<11} "
+                      f"{stats['avg_placement']:<9.1f} {stats['day2_rate']*100:<5.1f}%")
+            
+            return performers
+            
+        except Exception as e:
+            print(f"❌ Error getting top performers: {e}")
+            return []
+
+    def database_stats(self):
+        """Show database statistics"""
+        try:
+            from player_database import PlayerDatabase
+            db = PlayerDatabase(self.db_path)
+            stats = db.get_database_stats()
+            
+            print(f"\n📊 DATABASE STATISTICS")
+            print("=" * 40)
+            print(f"Total players: {stats['total_players']:,}")
+            print(f"Players with tournament history: {stats['players_with_tournament_history']:,}")
+            print(f"Unique tournaments recorded: {stats['unique_tournaments_recorded']}")
+            print(f"Low CP players (≤331): {stats['low_cp_players']:,}")
+            print(f"High CP players (≥332): {stats['high_cp_players']:,}")
+            
+            return stats
+            
+        except Exception as e:
+            print(f"❌ Error getting database stats: {e}")
+            return {}
+
+    def run_multiple_quick(self, num_tournaments=10, verbose=True, save_results=False):
+        """Run multiple tournaments quickly for batch analysis"""
+        print(f"🚀 RUNNING {num_tournaments} TOURNAMENTS")
+        
+        results = []
+        for i in range(num_tournaments):
+            if verbose:
+                print(f"🎮 Tournament {i+1}/{num_tournaments}...", end=" ")
+            
+            # Run tournament with random player count
+            result = self.run_tournament(verbose=False, save_results=save_results)
+            
+            if result:
+                champion_name = result['final_standings'].iloc[0]['name'] if len(result['final_standings']) > 0 else 'Unknown'
+                champion_cp = result['final_standings'].iloc[0]['cp'] if len(result['final_standings']) > 0 else 0
+                
+                if verbose:
+                    cp_indicator = "🔥" if champion_cp <= 331 else "💎"
+                    print(f"Champion: {champion_name} ({champion_cp} CP) {cp_indicator}")
+                
+                results.append({
+                    'tournament_id': result['tournament_id'],
+                    'total_players': len(result['players_df']),
+                    'day2_players': len(result['final_standings']),
+                    'champion': champion_name,
+                    'champion_cp': champion_cp,
+                    'seed': result['seed']
+                })
+        
+        if results:
+            avg_players = sum(r['total_players'] for r in results) / len(results)
+            low_cp_champions = sum(1 for r in results if r['champion_cp'] <= 331)
+            
+            print(f"\n📈 SUMMARY: {len(results)} tournaments | Avg size: {avg_players:.0f} players | Low CP champions: {low_cp_champions}/{len(results)} ({low_cp_champions/len(results)*100:.1f}%)")
+        
+        return results
 
     def analyze_player(self, search_term):
         """Analyze a specific player's matches"""
@@ -929,7 +1038,7 @@ class TournamentSimulator:
         
         print(f"\n" + "="*60)
 
-    def track_140th_place_experiment(self, num_simulations=10, tournament_size=1000, save_results=True):
+    def track_140th_place_experiment(self, num_simulations=10, tournament_size=None, save_results=True):
         """Track 140th place championship points across multiple INDEPENDENT tournaments
         
         Each tournament starts from the same baseline to see range of possible outcomes.
@@ -977,7 +1086,7 @@ class TournamentSimulator:
             self.na_manager.na_standings = initial_standings.copy()
             
             # Run tournament (quietly for speed)
-            result = self.run_tournament(num_players=tournament_size, verbose=False)
+            result = self.run_tournament(num_players=tournament_size, verbose=False, save_results=save_results)
             
             if result:
                 # Get 140th place after THIS tournament only
@@ -1111,7 +1220,7 @@ class TournamentSimulator:
         
         return results_file, stats_file
 
-    def run_multi_event_simulation(self, num_events=5, players_per_event=3700, save_individual_standings=True):
+    def run_multi_event_simulation(self, num_events=5, players_per_event=None, save_individual_standings=True):
         """Run multiple tournaments and aggregate results"""
         from datetime import datetime
         import os
@@ -1133,8 +1242,11 @@ class TournamentSimulator:
             print(f"\n🏆 EVENT {event_num}/{num_events}")
             print("-" * 40)
             
+            # Use random tournament size if not specified
+            tournament_size = players_per_event if players_per_event is not None else random.randint(3700, 4000)
+            
             # Run tournament
-            result = self.run_tournament(players_per_event)
+            result = self.run_tournament(tournament_size, save_results=True)
             
             # Extract key metrics
             df = result['players_df']

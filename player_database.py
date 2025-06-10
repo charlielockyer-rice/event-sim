@@ -1,585 +1,506 @@
+#!/usr/bin/env python3
 """
-Pokémon Tournament Player Database Management System
-
-This module provides comprehensive player data management for tournament simulation,
-including player generation, data storage, and tournament tracking capabilities.
+Simplified Player Database for Tournament Simulation
+Focuses on essential functionality with tournament tracking
 """
 
-import pandas as pd
+import sqlite3
 import json
 import random
-import numpy as np
-from typing import List, Dict, Any, Optional, Set
-from dataclasses import dataclass, field, asdict
-from enum import Enum
-import sqlite3
-from pathlib import Path
-import uuid
 from datetime import datetime
+from typing import List, Dict, Optional, Any
 
-# Rating Zones as defined in the requirements
-class RatingZone(Enum):
-    NA = "NA"
-    EU = "EU" 
-    LATAM = "LATAM"
-    OCE = "OCE"
-    MESA = "MESA"
-
-@dataclass
-class TournamentRecord:
-    """Track individual tournament performance"""
-    tournament_id: str
-    opponents_played: Set[int] = field(default_factory=set)
-    match_points: int = 0
-    wins: int = 0
-    losses: int = 0
-    ties: int = 0
-    received_bye: bool = False
-    is_active: bool = True
-    placement: Optional[int] = None
-    final_ranking: Optional[int] = None
-    
-    def to_dict(self):
-        """Convert to dictionary, handling sets properly"""
-        data = asdict(self)
-        data['opponents_played'] = list(self.opponents_played)
-        return data
-    
-    @classmethod
-    def from_dict(cls, data: Dict):
-        """Create from dictionary, converting lists back to sets"""
-        if isinstance(data, cls):
-            return data  # Already a TournamentRecord object
-        data = data.copy()
-        data['opponents_played'] = set(data.get('opponents_played', []))
-        return cls(**data)
-
-@dataclass
 class Player:
-    """Complete player data structure for tournament simulation"""
+    """Simplified player data structure"""
     
-    # Core Identity
-    player_id: int  # Unique identifier (can be same as global_rank for convenience)
-    name: str
-    global_rank: int  # Official global ranking
-    rating_zone: RatingZone
-    cp: int  # Championship Points (higher = better ranking)
-    
-    # Tournament History
-    tournaments_played: Dict[str, TournamentRecord] = field(default_factory=dict)
-    
-    # Career Statistics
-    career_tournaments: int = 0
-    career_match_points: int = 0
-    career_wins: int = 0
-    career_losses: int = 0
-    career_ties: int = 0
-    career_top_cuts: int = 0
-    career_wins_tournament: int = 0
-    
-    # Metadata
-    created_date: str = field(default_factory=lambda: datetime.now().isoformat())
-    last_updated: str = field(default_factory=lambda: datetime.now().isoformat())
-    
-    def __post_init__(self):
-        """Ensure rating_zone is RatingZone enum"""
-        if isinstance(self.rating_zone, str):
-            self.rating_zone = RatingZone(self.rating_zone)
-    
-    def get_current_tournament_record(self, tournament_id: str) -> TournamentRecord:
-        """Get or create tournament record for current tournament"""
-        if tournament_id not in self.tournaments_played:
-            self.tournaments_played[tournament_id] = TournamentRecord(tournament_id=tournament_id)
-        return self.tournaments_played[tournament_id]
-    
-    def update_tournament_stats(self, tournament_id: str, **kwargs):
-        """Update statistics for specific tournament"""
-        record = self.get_current_tournament_record(tournament_id)
-        for key, value in kwargs.items():
-            if hasattr(record, key):
-                setattr(record, key, value)
-        self.last_updated = datetime.now().isoformat()
-    
-    def finish_tournament(self, tournament_id: str, placement: int, final_ranking: int):
-        """Mark tournament as finished and update career stats"""
-        if tournament_id in self.tournaments_played:
-            record = self.tournaments_played[tournament_id]
-            record.placement = placement
-            record.final_ranking = final_ranking
-            
-            # Update career stats
-            self.career_tournaments += 1
-            self.career_match_points += record.match_points
-            self.career_wins += record.wins
-            self.career_losses += record.losses
-            self.career_ties += record.ties
-            
-            # Check for top cut (placement <= 8 is arbitrary, adjust as needed)
-            if placement <= 8:
-                self.career_top_cuts += 1
-            
-            # Check for tournament win
-            if placement == 1:
-                self.career_wins_tournament += 1
-                
-            self.last_updated = datetime.now().isoformat()
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert player to dictionary for storage"""
-        data = asdict(self)
-        data['rating_zone'] = self.rating_zone.value
-        # Convert tournament records
-        data['tournaments_played'] = {
-            tid: record.to_dict() for tid, record in self.tournaments_played.items()
+    def __init__(self, player_id: int, name: str, cp: int, global_rank: int = None, rating_zone: str = "NA"):
+        self.player_id = player_id
+        self.name = name
+        self.cp = cp
+        self.global_rank = global_rank or player_id
+        self.rating_zone = rating_zone
+        
+        # Tournament tracking
+        self.tournament_history = []  # List of tournament results
+        
+    def add_tournament_result(self, tournament_id: str, final_placement: int, 
+                            wins: int, losses: int, ties: int, match_points: int,
+                            opponents_faced: List[str], match_details: List[Dict]):
+        """Add tournament result to player's history"""
+        result = {
+            'tournament_id': tournament_id,
+            'date': datetime.now().isoformat(),
+            'final_placement': final_placement,
+            'wins': wins,
+            'losses': losses,
+            'ties': ties,
+            'match_points': match_points,
+            'opponents_faced': opponents_faced,
+            'match_details': match_details,  # Round-by-round results
+            'made_day2': match_points >= 19
         }
-        return data
+        self.tournament_history.append(result)
+    
+    def get_stats_summary(self) -> Dict:
+        """Get overall performance statistics"""
+        if not self.tournament_history:
+            return {'tournaments': 0, 'avg_placement': 0, 'best_placement': 0, 'day2_rate': 0}
+        
+        placements = [t['final_placement'] for t in self.tournament_history]
+        day2_count = sum(1 for t in self.tournament_history if t['made_day2'])
+        
+        return {
+            'tournaments': len(self.tournament_history),
+            'avg_placement': sum(placements) / len(placements),
+            'best_placement': min(placements),
+            'worst_placement': max(placements),
+            'day2_rate': day2_count / len(self.tournament_history),
+            'total_wins': sum(t['wins'] for t in self.tournament_history),
+            'total_losses': sum(t['losses'] for t in self.tournament_history),
+            'total_ties': sum(t['ties'] for t in self.tournament_history)
+        }
+    
+    def to_dict(self) -> Dict:
+        """Convert to dictionary for database storage"""
+        return {
+            'player_id': self.player_id,
+            'name': self.name,
+            'cp': self.cp,
+            'global_rank': self.global_rank,
+            'rating_zone': self.rating_zone,
+            'tournament_history': json.dumps(self.tournament_history)
+        }
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Player':
-        """Create player from dictionary"""
-        if isinstance(data, cls):
-            return data  # Already a Player object
-        data = data.copy()
-        # Convert tournaments back to TournamentRecord objects
-        tournaments = {}
-        for tid, record_data in data.get('tournaments_played', {}).items():
-            if isinstance(record_data, TournamentRecord):
-                tournaments[tid] = record_data
-            else:
-                tournaments[tid] = TournamentRecord.from_dict(record_data)
-        data['tournaments_played'] = tournaments
-        return cls(**data)
+    def from_dict(cls, data: Dict) -> 'Player':
+        """Create player from database dictionary"""
+        player = cls(
+            player_id=data['player_id'],
+            name=data['name'],
+            cp=data['cp'],
+            global_rank=data.get('global_rank', data['player_id']),
+            rating_zone=data.get('rating_zone', 'NA')
+        )
+        
+        # Load tournament history if it exists
+        history_json = data.get('tournament_history', '[]')
+        if isinstance(history_json, str):
+            try:
+                player.tournament_history = json.loads(history_json)
+            except json.JSONDecodeError:
+                player.tournament_history = []
+        else:
+            player.tournament_history = history_json or []
+            
+        return player
 
 class PlayerDatabase:
-    """Manages player database operations"""
+    """Simplified database for tournament players"""
     
-    def __init__(self, db_path: str = "pokemon_players.db"):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: str = "custom_tournament_players.db"):
+        self.db_path = db_path
         self.init_database()
     
-    def _convert_db_row_to_dict(self, columns: List[str], row: tuple) -> Dict:
-        """Convert database row to properly typed dictionary"""
-        data = dict(zip(columns, row))
-        
-        # Handle potentially binary data
-        for key, value in data.items():
-            if isinstance(value, bytes):
-                # Convert bytes to int if it's a numeric field
-                if key in ['player_id', 'global_rank', 'cp', 'career_tournaments', 
-                          'career_match_points', 'career_wins', 'career_losses', 
-                          'career_ties', 'career_top_cuts', 'career_wins_tournament']:
-                    # Convert 8-byte integer from bytes
-                    data[key] = int.from_bytes(value, byteorder='little', signed=False)
-                else:
-                    data[key] = value.decode('utf-8')
-            else:
-                # Ensure proper types for numeric fields
-                if key in ['player_id', 'global_rank', 'cp', 'career_tournaments', 
-                          'career_match_points', 'career_wins', 'career_losses', 
-                          'career_ties', 'career_top_cuts', 'career_wins_tournament']:
-                    data[key] = int(value)
-        
-        return data
-    
     def init_database(self):
-        """Initialize SQLite database with proper schema"""
+        """Initialize SQLite database with simple schema"""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS players (
                     player_id INTEGER PRIMARY KEY,
                     name TEXT NOT NULL,
-                    global_rank INTEGER UNIQUE NOT NULL,
-                    rating_zone TEXT NOT NULL,
                     cp INTEGER NOT NULL,
-                    career_tournaments INTEGER DEFAULT 0,
-                    career_match_points INTEGER DEFAULT 0,
-                    career_wins INTEGER DEFAULT 0,
-                    career_losses INTEGER DEFAULT 0,
-                    career_ties INTEGER DEFAULT 0,
-                    career_top_cuts INTEGER DEFAULT 0,
-                    career_wins_tournament INTEGER DEFAULT 0,
-                    created_date TEXT NOT NULL,
-                    last_updated TEXT NOT NULL,
-                    tournaments_data TEXT  -- JSON string of tournament records
+                    global_rank INTEGER,
+                    rating_zone TEXT DEFAULT 'NA',
+                    tournament_history TEXT DEFAULT '[]'
                 )
             """)
-            
-            # Create index for faster lookups
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_global_rank ON players(global_rank)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_cp ON players(cp)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_rating_zone ON players(rating_zone)")
-            
             conn.commit()
-    
-    def save_player(self, player: Player):
-        """Save or update player in database"""
-        with sqlite3.connect(self.db_path) as conn:
-            # Convert tournaments to JSON, handling numpy types
-            tournaments_data = {}
-            for tid, record in player.tournaments_played.items():
-                record_dict = record.to_dict()
-                # Convert numpy types to native Python types
-                for key, value in record_dict.items():
-                    if hasattr(value, 'item'):  # numpy scalar
-                        record_dict[key] = value.item()
-                    elif isinstance(value, (list, set)):
-                        record_dict[key] = [int(x) if hasattr(x, 'item') else x for x in value]
-                tournaments_data[tid] = record_dict
-            
-            tournaments_json = json.dumps(tournaments_data)
-            
-            conn.execute("""
-                INSERT OR REPLACE INTO players (
-                    player_id, name, global_rank, rating_zone, cp,
-                    career_tournaments, career_match_points, career_wins, 
-                    career_losses, career_ties, career_top_cuts, career_wins_tournament,
-                    created_date, last_updated, tournaments_data
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                player.player_id, player.name, player.global_rank, 
-                player.rating_zone.value, player.cp,
-                player.career_tournaments, player.career_match_points,
-                player.career_wins, player.career_losses, player.career_ties,
-                player.career_top_cuts, player.career_wins_tournament,
-                player.created_date, player.last_updated, tournaments_json
-            ))
-            conn.commit()
-    
-    def load_player(self, player_id: int) -> Optional[Player]:
-        """Load player by ID"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("SELECT * FROM players WHERE player_id = ?", (player_id,))
-            row = cursor.fetchone()
-            
-            if row:
-                # Convert row to dictionary
-                columns = [description[0] for description in cursor.description]
-                data = self._convert_db_row_to_dict(columns, row)
-                
-                # Parse tournaments data
-                tournaments_data = json.loads(data.pop('tournaments_data', '{}'))
-                tournaments = {
-                    tid: TournamentRecord.from_dict(record_data)
-                    for tid, record_data in tournaments_data.items()
-                }
-                data['tournaments_played'] = tournaments
-                
-                return Player.from_dict(data)
-        return None
     
     def load_all_players(self) -> List[Player]:
         """Load all players from database"""
-        players = []
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute("SELECT * FROM players ORDER BY global_rank")
-            columns = [description[0] for description in cursor.description]
+            # Check if tournament_history column exists
+            cursor = conn.execute("PRAGMA table_info(players)")
+            columns = [column[1] for column in cursor.fetchall()]
+            has_tournament_history = 'tournament_history' in columns
             
-            for row in cursor.fetchall():
-                data = self._convert_db_row_to_dict(columns, row)
+            if has_tournament_history:
+                # Check if rating_zone exists too
+                has_rating_zone = 'rating_zone' in columns
                 
-                tournaments_data = json.loads(data.pop('tournaments_data', '{}'))
-                tournaments = {
-                    tid: TournamentRecord.from_dict(record_data)
-                    for tid, record_data in tournaments_data.items()
-                }
-                data['tournaments_played'] = tournaments
-                players.append(Player.from_dict(data))
-        
-        return players
+                if has_rating_zone:
+                    cursor = conn.execute("""
+                        SELECT player_id, name, cp, global_rank, rating_zone, tournament_history 
+                        FROM players 
+                        ORDER BY cp DESC, global_rank ASC
+                    """)
+                    
+                    players = []
+                    for row in cursor.fetchall():
+                        player_data = {
+                            'player_id': row[0],
+                            'name': row[1],
+                            'cp': row[2],
+                            'global_rank': row[3] or row[0],
+                            'rating_zone': row[4] or 'NA',
+                            'tournament_history': row[5] or '[]'
+                        }
+                        players.append(Player.from_dict(player_data))
+                else:
+                    cursor = conn.execute("""
+                        SELECT player_id, name, cp, global_rank, tournament_history 
+                        FROM players 
+                        ORDER BY cp DESC, global_rank ASC
+                    """)
+                    
+                    players = []
+                    for row in cursor.fetchall():
+                        player_data = {
+                            'player_id': row[0],
+                            'name': row[1],
+                            'cp': row[2],
+                            'global_rank': row[3] or row[0],
+                            'rating_zone': 'NA',
+                            'tournament_history': row[4] or '[]'
+                        }
+                        players.append(Player.from_dict(player_data))
+            else:
+                # Handle old database schema - load with old schema and migrate
+                print("📦 Loading from old database schema...")
+                
+                # Load with whatever columns exist
+                if 'global_rank' in columns:
+                    cursor = conn.execute("""
+                        SELECT player_id, name, cp, global_rank 
+                        FROM players 
+                        ORDER BY cp DESC, global_rank ASC
+                    """)
+                else:
+                    cursor = conn.execute("""
+                        SELECT player_id, name, cp 
+                        FROM players 
+                        ORDER BY cp DESC, player_id ASC
+                    """)
+                
+                players = []
+                for row in cursor.fetchall():
+                    if len(row) >= 4:  # Has global_rank
+                        player_data = {
+                            'player_id': row[0],
+                            'name': row[1],
+                            'cp': row[2],
+                            'global_rank': row[3] or row[0],
+                            'tournament_history': '[]'
+                        }
+                    else:  # No global_rank
+                        player_data = {
+                            'player_id': row[0],
+                            'name': row[1],
+                            'cp': row[2],
+                            'global_rank': row[0],
+                            'tournament_history': '[]'
+                        }
+                    players.append(Player.from_dict(player_data))
+                
+                # Now migrate the schema for future use
+                self._migrate_old_schema()
+            
+            return players
     
-    def get_players_by_zone(self, zone: RatingZone) -> List[Player]:
-        """Get all players from specific rating zone"""
+    def _migrate_old_schema(self):
+        """Migrate old database schema to new simplified schema"""
         with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM players WHERE rating_zone = ? ORDER BY cp DESC",
-                (zone.value,)
+            # Check current schema
+            cursor = conn.execute("PRAGMA table_info(players)")
+            columns = [column[1] for column in cursor.fetchall()]
+            
+            if 'tournament_history' not in columns:
+                # Add tournament_history column
+                conn.execute("ALTER TABLE players ADD COLUMN tournament_history TEXT DEFAULT '[]'")
+                
+                # If the old schema had global_rank, we're good
+                # If not, add it (use player_id as default)
+                if 'global_rank' not in columns:
+                    conn.execute("ALTER TABLE players ADD COLUMN global_rank INTEGER")
+                    conn.execute("UPDATE players SET global_rank = player_id WHERE global_rank IS NULL")
+                
+                conn.commit()
+                print("✅ Database schema migrated successfully")
+            
+            # Check for rating_zone column and add if missing
+            if 'rating_zone' not in columns:
+                conn.execute("ALTER TABLE players ADD COLUMN rating_zone TEXT DEFAULT 'NA'")
+                conn.commit()
+                print("✅ Added rating_zone column to existing database")
+    
+    def load_players_subset(self, num_players: int) -> List[Player]:
+        """Load top N players (by CP ranking)"""
+        all_players = self.load_all_players()
+        return all_players[:num_players]
+    
+    def save_player(self, player: Player):
+        """Save a single player to the database"""
+        data = player.to_dict()
+        
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO players
+                (player_id, name, cp, global_rank, rating_zone, tournament_history)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                data['player_id'], data['name'], data['cp'],
+                data['global_rank'], data['rating_zone'], data['tournament_history']
+            ))
+            conn.commit()
+    
+    def save_tournament_results(self, tournament_id: str, players_df, final_standings):
+        """Save tournament results for all players"""
+        # Load all players once at the beginning (major performance improvement)
+        all_players = self.load_all_players()
+        player_lookup = {p.player_id: p for p in all_players}
+        
+        # Create lookup for final placements
+        placement_lookup = {}
+        for i, (_, player) in enumerate(final_standings.iterrows(), 1):
+            placement_lookup[player['player_id']] = i
+        
+        saved_count = 0
+        for _, player_row in players_df.iterrows():
+            player_id = player_row['player_id']
+            
+            # Get existing player from lookup (much faster)
+            player = player_lookup.get(player_id)
+            if not player:
+                continue
+            
+            # Extract match details from match_history (ensure JSON serializable)
+            match_details = []
+            for match in player_row.get('match_history', []):
+                match_details.append({
+                    'round': int(match.get('round', 0)),
+                    'opponent': str(match.get('opponent', 'Unknown')),
+                    'opponent_cp': int(match.get('opponent_cp', 0)),
+                    'result': str(match.get('result', 'unknown')),
+                    'brutal': bool(match.get('brutal', False))
+                })
+            
+            # Get opponents faced
+            opponents_faced = list(player_row.get('opponents_played', set()))
+            if opponents_faced and isinstance(opponents_faced[0], int):  # Convert IDs to names
+                opponent_names = []
+                for opp_id in opponents_faced:
+                    opp_rows = players_df[players_df['player_id'] == opp_id]
+                    if not opp_rows.empty:
+                        opponent_names.append(opp_rows.iloc[0]['name'])
+                opponents_faced = opponent_names
+            
+            # Get final placement
+            final_placement = placement_lookup.get(player_id, len(players_df) + 1)
+            
+            # Add tournament result (convert numpy types to native Python types)
+            player.add_tournament_result(
+                tournament_id=tournament_id,
+                final_placement=int(final_placement),
+                wins=int(player_row['wins']),
+                losses=int(player_row['losses']),
+                ties=int(player_row['ties']),
+                match_points=int(player_row['match_points']),
+                opponents_faced=opponents_faced,
+                match_details=match_details
             )
-            columns = [description[0] for description in cursor.description]
             
-            players = []
-            for row in cursor.fetchall():
-                data = self._convert_db_row_to_dict(columns, row)
-                
-                tournaments_data = json.loads(data.pop('tournaments_data', '{}'))
-                tournaments = {
-                    tid: TournamentRecord.from_dict(record_data)
-                    for tid, record_data in tournaments_data.items()
-                }
-                data['tournaments_played'] = tournaments
-                players.append(Player.from_dict(data))
+            # Save updated player
+            self.save_player(player)
+            saved_count += 1
+    
+    def get_player_analysis(self, player_name: str) -> Optional[Dict]:
+        """Get detailed analysis for a specific player"""
+        players = self.load_all_players()
         
-        return players
-    
-    def get_top_players(self, limit: int = 100) -> List[Player]:
-        """Get top players by CP"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                "SELECT * FROM players ORDER BY cp DESC LIMIT ?",
-                (limit,)
-            )
-            columns = [description[0] for description in cursor.description]
-            
-            players = []
-            for row in cursor.fetchall():
-                data = self._convert_db_row_to_dict(columns, row)
-                
-                tournaments_data = json.loads(data.pop('tournaments_data', '{}'))
-                tournaments = {
-                    tid: TournamentRecord.from_dict(record_data)
-                    for tid, record_data in tournaments_data.items()
-                }
-                data['tournaments_played'] = tournaments
-                players.append(Player.from_dict(data))
+        # Find player (case insensitive)
+        target_player = None
+        for player in players:
+            if player.name.lower() == player_name.lower():
+                target_player = player
+                break
         
-        return players
-
-def generate_realistic_name() -> str:
-    """Generate realistic player names"""
-    first_names = [
-        "Alex", "Sam", "Jordan", "Taylor", "Casey", "Morgan", "Avery", "Riley",
-        "Cameron", "Dakota", "Parker", "Hayden", "Sage", "River", "Skyler",
-        "Phoenix", "Rowan", "Emery", "Quinn", "Blake", "Kai", "Nova", "Remi",
-        "Charlie", "Finley", "Reese", "Sawyer", "Lennox", "Ari", "Sage"
-    ]
-    
-    last_names = [
-        "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-        "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson",
-        "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee",
-        "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez",
-        "Lewis", "Robinson", "Walker", "Young", "Allen", "King", "Wright"
-    ]
-    
-    return f"{random.choice(first_names)} {random.choice(last_names)}"
-
-def generate_sample_players(num_players: int, rating_zone_distribution: Optional[Dict[RatingZone, float]] = None) -> List[Player]:
-    """
-    Generate sample players with realistic distributions
-    
-    Args:
-        num_players: Number of players to generate
-        rating_zone_distribution: Optional custom distribution of rating zones
-    
-    Returns:
-        List of generated Player objects
-    """
-    
-    if rating_zone_distribution is None:
-        # Updated distribution reflecting NA-focused tournament with elite international players
-        rating_zone_distribution = {
-            RatingZone.NA: 0.900,     # North America - domestic tournament
-            RatingZone.EU: 0.050,     # Europe - elite travelers only
-            RatingZone.LATAM: 0.030,  # Latin America - elite travelers only
-            RatingZone.OCE: 0.015,    # Oceania - elite travelers only (adjusted to sum to 1.0)
-            RatingZone.MESA: 0.005,   # Middle East/South Africa - elite travelers only
+        if not target_player:
+            return None
+        
+        stats = target_player.get_stats_summary()
+        
+        return {
+            'player': target_player,
+            'stats': stats,
+            'recent_tournaments': target_player.tournament_history[-5:],  # Last 5 tournaments
+            'all_tournaments': target_player.tournament_history
         }
     
-    players = []
-    zones = list(rating_zone_distribution.keys())
-    zone_weights = list(rating_zone_distribution.values())
-    
-    # Step 1: Assign zones to all players
-    player_zones = np.random.choice(zones, size=num_players, p=zone_weights)
-    
-    # Step 2: Generate CP values - International players are PEERS of top NA players, not better
-    na_players = sum(1 for zone in player_zones if zone == RatingZone.NA)
-    international_players = num_players - na_players
-    
-    # Generate ALL CP values together first (unified distribution)
-    all_cp_base = np.random.lognormal(mean=6.5, sigma=0.8, size=num_players)
-    all_cp_base = np.sort(all_cp_base)[::-1]  # Sort descending (best to worst)
-    
-    # Scale to full range (50-2500)
-    min_cp, max_cp = 50, 2500
-    all_cp_values = ((all_cp_base - all_cp_base.min()) / 
-                     (all_cp_base.max() - all_cp_base.min()) * 
-                     (max_cp - min_cp) + min_cp).astype(int)
-    
-    # Now assign CP based on elite international concept:
-    # International players should be drawn from the TOP TIER of this distribution
-    # NA players get the full range, but international players only get top ~25%
-    
-    # Split CP pool: top 25% for international selection, full range for NA
-    top_25_percent_cutoff = int(len(all_cp_values) * 0.25)
-    elite_cp_pool = all_cp_values[:top_25_percent_cutoff]  # Top 25% of all CP values
-    full_cp_pool = all_cp_values.copy()  # Full range for NA
-    
-    # Assign CP values
-    na_cp_values = []
-    international_cp_values = []
-    
-    # Use shuffled indices for random assignment
-    elite_indices = np.random.permutation(len(elite_cp_pool))
-    full_indices = np.random.permutation(len(full_cp_pool))
-    
-    elite_index = 0
-    full_index = 0
-    
-    # Step 3: Create players with appropriate CP based on their zone
-    for i in range(num_players):
-        # Global rank is 1-indexed position
-        global_rank = i + 1
+    def get_top_performers(self, min_tournaments: int = 5, metric: str = 'avg_placement') -> List[Dict]:
+        """Get top performing players across tournaments"""
+        players = self.load_all_players()
+        performers = []
         
-        # Get zone for this player
-        rating_zone = player_zones[i]
+        for player in players:
+            if len(player.tournament_history) >= min_tournaments:
+                stats = player.get_stats_summary()
+                performers.append({
+                    'name': player.name,
+                    'cp': player.cp,
+                    'stats': stats
+                })
         
-        # Generate realistic name
-        name = generate_realistic_name()
+        # Sort by the specified metric
+        if metric == 'avg_placement':
+            performers.sort(key=lambda x: x['stats']['avg_placement'])
+        elif metric == 'day2_rate':
+            performers.sort(key=lambda x: x['stats']['day2_rate'], reverse=True)
+        elif metric == 'best_placement':
+            performers.sort(key=lambda x: x['stats']['best_placement'])
         
-        # Assign CP based on zone and elite status
-        if rating_zone == RatingZone.NA:
-            # NA players can have any CP value from the full range
-            cp = full_cp_pool[full_indices[full_index % len(full_indices)]]
-            full_index += 1
+        return performers
+    
+    def get_database_stats(self) -> Dict:
+        """Get overview statistics of the database"""
+        players = self.load_all_players()
+        
+        players_with_history = [p for p in players if p.tournament_history]
+        
+        if players_with_history:
+            all_tournaments = []
+            for player in players_with_history:
+                all_tournaments.extend(player.tournament_history)
+            
+            unique_tournaments = len(set(t['tournament_id'] for t in all_tournaments))
         else:
-            # International players only get elite CP values (top 25%)
-            cp = elite_cp_pool[elite_indices[elite_index % len(elite_indices)]]
-            elite_index += 1
+            unique_tournaments = 0
         
-        player = Player(
-            player_id=global_rank,  # Use rank as ID for simplicity
-            name=name,
-            global_rank=global_rank,
-            rating_zone=rating_zone,
-            cp=cp
-        )
+        return {
+            'total_players': len(players),
+            'players_with_tournament_history': len(players_with_history),
+            'unique_tournaments_recorded': unique_tournaments,
+            'low_cp_players': len([p for p in players if p.cp <= 331]),
+            'high_cp_players': len([p for p in players if p.cp >= 332])
+        }
+
+# Utility functions for generating fake players (if needed)
+def generate_fake_name(rating_zone: str = "NA") -> str:
+    """Generate a realistic-looking fake name based on rating zone"""
+    if rating_zone == "JP":
+        return generate_japanese_name()
+    else:
+        # Default NA/Western names
+        first_names = [
+            "Alex", "Blake", "Casey", "Drew", "Emery", "Finley", "Gray", "Harper", 
+            "Indigo", "Jordan", "Kai", "Logan", "Morgan", "Neo", "Ocean", "Parker",
+            "Quinn", "River", "Sage", "Taylor", "Uri", "Vale", "Winter", "Xander", "Yuki", "Zion"
+        ]
         
-        players.append(player)
+        last_names = [
+            "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+            "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas",
+            "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris"
+        ]
+        
+        return f"{random.choice(first_names)} {random.choice(last_names)}"
+
+def generate_japanese_name() -> str:
+    """Generate realistic Japanese names"""
+    # Common Japanese given names
+    male_names = [
+        "Hiroshi", "Takeshi", "Yuki", "Satoshi", "Kenji", "Makoto", "Ryota", "Daiki",
+        "Shota", "Kenta", "Ryo", "Yuto", "Haruto", "Sota", "Ren", "Kaito", 
+        "Yamato", "Hayato", "Tatsuki", "Akira", "Koichi", "Shinji", "Masato",
+        "Naoki", "Tomoki", "Kazuki", "Takumi", "Tsubasa", "Kosuke", "Taiga"
+    ]
     
-    # Step 4: Re-sort players by CP to ensure global ranking makes sense
-    # Higher CP should have lower (better) global rank
-    players.sort(key=lambda p: p.cp, reverse=True)
+    female_names = [
+        "Yuki", "Akiko", "Emi", "Rei", "Miki", "Saki", "Yui", "Mika", "Rina", "Kana",
+        "Ami", "Mao", "Hana", "Aoi", "Kokoro", "Nana", "Rika", "Sayaka", "Yuka", "Misaki",
+        "Asuka", "Midori", "Haruka", "Sakura", "Shiori", "Ayaka", "Nanami", "Rena", "Karin", "Honoka"
+    ]
     
-    # Reassign global ranks based on CP ranking
-    for i, player in enumerate(players):
-        player.global_rank = i + 1
-        player.player_id = i + 1  # Keep ID same as rank for simplicity
+    # Common Japanese surnames
+    surnames = [
+        "Tanaka", "Sato", "Suzuki", "Takahashi", "Watanabe", "Ito", "Yamamoto", "Nakamura",
+        "Kobayashi", "Kato", "Yoshida", "Yamada", "Sasaki", "Yamazaki", "Mori", "Abe",
+        "Ikeda", "Hashimoto", "Yamashita", "Ishikawa", "Nakajima", "Maeda", "Ogawa", "Goto",
+        "Okada", "Hasegawa", "Murakami", "Kondo", "Ishida", "Saito", "Sakamoto", "Endo",
+        "Aoki", "Fujii", "Nishimura", "Fukuda", "Ota", "Miura", "Takeuchi", "Nakano",
+        "Matsuda", "Harada", "Inoue", "Kimura", "Hayashi", "Shimizu", "Yamaguchi", "Matsumoto"
+    ]
+    
+    # Mix of male and female names for variety
+    all_given_names = male_names + female_names
+    given_name = random.choice(all_given_names)
+    surname = random.choice(surnames)
+    
+    return f"{given_name} {surname}"
+
+def generate_fake_players(num_players: int, start_id: int = 1) -> List[Player]:
+    """Generate fake players with specific distribution for testing"""
+    players = []
+    
+    # Create 250 NA players (low CP: 50-300)
+    na_players = min(250, num_players)
+    for i in range(na_players):
+        player_id = start_id + i
+        name = generate_fake_name("NA")
+        cp = random.randint(50, 300)
+        players.append(Player(player_id, name, cp, player_id, "NA"))
+    
+    # Create 250 JP players (650 CP each) if we still need more
+    jp_players = min(250, num_players - na_players)
+    for i in range(jp_players):
+        player_id = start_id + na_players + i
+        name = generate_fake_name("JP")
+        cp = 650
+        players.append(Player(player_id, name, cp, player_id, "JP"))
+    
+    # If we still need more players, create additional NA players with low CP
+    remaining_needed = num_players - na_players - jp_players
+    for i in range(remaining_needed):
+        player_id = start_id + na_players + jp_players + i
+        name = generate_fake_name("NA")
+        cp = random.randint(50, 300)
+        players.append(Player(player_id, name, cp, player_id, "NA"))
     
     return players
 
-def create_player_database(num_players: int = 5000, 
-                          db_path: str = "pokemon_players.db",
-                          force_recreate: bool = False) -> PlayerDatabase:
-    """
-    Create and populate a player database
+def create_sample_database(db_path: str = "custom_tournament_players.db", 
+                          num_players: int = 5000, force_recreate: bool = False):
+    """Create a sample database with fake players"""
+    import os
     
-    Args:
-        num_players: Number of players to generate
-        db_path: Path to database file
-        force_recreate: Whether to recreate database if it exists
+    if force_recreate and os.path.exists(db_path):
+        os.remove(db_path)
     
-    Returns:
-        PlayerDatabase instance
-    """
-    
-    db_path_obj = Path(db_path)
-    
-    # Remove existing database if force_recreate
-    if force_recreate and db_path_obj.exists():
-        db_path_obj.unlink()
-        print(f"🗑️  Removed existing database: {db_path}")
-    
-    # Create database
     db = PlayerDatabase(db_path)
     
-    # Check if database already has data
+    # Check if database already has players
     existing_players = db.load_all_players()
     if existing_players and not force_recreate:
-        print(f"📊 Database already contains {len(existing_players)} players")
+        print(f"Database already has {len(existing_players)} players")
         return db
     
-    print(f"🎯 Generating {num_players} sample players...")
+    print(f"Creating sample database with {num_players} players...")
     
-    # Generate players
-    players = generate_sample_players(num_players)
+    # Generate fake players
+    fake_players = generate_fake_players(num_players)
     
     # Save to database
-    print("💾 Saving players to database...")
-    for i, player in enumerate(players):
+    for player in fake_players:
         db.save_player(player)
-        if (i + 1) % 1000 == 0:
-            print(f"   Saved {i + 1}/{num_players} players...")
     
-    print(f"✅ Database created with {num_players} players!")
-    
-    # Show some statistics
-    zone_counts = {}
-    cp_stats = []
-    for player in players:
-        zone_counts[player.rating_zone.value] = zone_counts.get(player.rating_zone.value, 0) + 1
-        cp_stats.append(player.cp)
-    
-    print(f"\n📈 Player Distribution:")
-    for zone, count in sorted(zone_counts.items()):
-        percentage = count / num_players * 100
-        print(f"   {zone}: {count:,} players ({percentage:.1f}%)")
-    
-    print(f"\n🏆 CP Statistics:")
-    print(f"   Range: {min(cp_stats):,} - {max(cp_stats):,}")
-    print(f"   Average: {np.mean(cp_stats):,.0f}")
-    print(f"   Median: {np.median(cp_stats):,.0f}")
-    
+    print(f"✅ Created database with {num_players} players")
     return db
 
-def export_players_to_formats(db: PlayerDatabase, export_dir: str = "exports"):
-    """Export players to various formats for analysis"""
+if __name__ == "__main__":
+    # Create sample database for testing
+    db = create_sample_database("test_players.db", 1000, force_recreate=True)
     
-    export_path = Path(export_dir)
-    export_path.mkdir(exist_ok=True)
-    
-    print(f"📤 Exporting player data to {export_dir}/...")
-    
-    players = db.load_all_players()
-    
-    # Convert to pandas DataFrame for easy export
-    player_data = []
-    for player in players:
-        player_data.append({
-            'player_id': player.player_id,
-            'name': player.name,
-            'global_rank': player.global_rank,
-            'rating_zone': player.rating_zone.value,
-            'cp': player.cp,
-            'career_tournaments': player.career_tournaments,
-            'career_match_points': player.career_match_points,
-            'career_wins': player.career_wins,
-            'career_losses': player.career_losses,
-            'career_ties': player.career_ties,
-            'career_top_cuts': player.career_top_cuts,
-            'career_wins_tournament': player.career_wins_tournament,
-            'created_date': player.created_date,
-            'last_updated': player.last_updated
-        })
-    
-    df = pd.DataFrame(player_data)
-    
-    # Export to CSV
-    csv_path = export_path / "players.csv"
-    df.to_csv(csv_path, index=False)
-    print(f"   ✅ CSV: {csv_path}")
-    
-    # Export to JSON
-    json_path = export_path / "players.json"
-    df.to_json(json_path, orient='records', indent=2)
-    print(f"   ✅ JSON: {json_path}")
-    
-    # Export summary statistics
-    summary_path = export_path / "player_summary.json"
-    summary = {
-        'total_players': len(players),
-        'rating_zone_distribution': df['rating_zone'].value_counts().to_dict(),
-        'cp_statistics': {
-            'min': int(df['cp'].min()),
-            'max': int(df['cp'].max()),
-            'mean': float(df['cp'].mean()),
-            'median': float(df['cp'].median()),
-            'std': float(df['cp'].std())
-        },
-        'top_10_players': df.head(10)[['name', 'global_rank', 'rating_zone', 'cp']].to_dict('records')
-    }
-    
-    with open(summary_path, 'w') as f:
-        json.dump(summary, f, indent=2)
-    print(f"   ✅ Summary: {summary_path}")
-    
-    print(f"�� Export complete!") 
+    # Show database stats
+    stats = db.get_database_stats()
+    print(f"\n📊 Database Stats:")
+    for key, value in stats.items():
+        print(f"   {key}: {value}") 

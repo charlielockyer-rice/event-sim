@@ -1,0 +1,35 @@
+140TH PLACE ANALYSIS FROM EXISTING TOURNAMENTS
+Generated: 2025-06-09 16:35:25
+==================================================
+
+Tournaments analyzed: 19
+Baseline 140th place: 662 CP
+
+STATISTICS:
+Min: 662 CP
+Max: 725 CP
+Mean: 714.0 CP
+Median: 720.0 CP
+Std Dev: 13.4 CP
+Range: 63 CP
+
+ALL VALUES:
+Tournament 1: 707 CP
+Tournament 2: 715 CP
+Tournament 3: 720 CP
+Tournament 4: 712 CP
+Tournament 5: 720 CP
+Tournament 6: 720 CP
+Tournament 7: 720 CP
+Tournament 8: 720 CP
+Tournament 9: 662 CP
+Tournament 10: 720 CP
+Tournament 11: 700 CP
+Tournament 12: 717 CP
+Tournament 13: 719 CP
+Tournament 14: 715 CP
+Tournament 15: 720 CP
+Tournament 16: 725 CP
+Tournament 17: 720 CP
+Tournament 18: 720 CP
+Tournament 19: 714 CP

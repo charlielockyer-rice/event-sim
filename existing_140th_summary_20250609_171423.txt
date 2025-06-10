@@ -1,0 +1,116 @@
+140TH PLACE ANALYSIS FROM EXISTING TOURNAMENTS
+Generated: 2025-06-09 17:14:23
+==================================================
+
+Tournaments analyzed: 100
+Baseline 140th place: 662 CP
+
+STATISTICS:
+Min: 662 CP
+Max: 725 CP
+Mean: 717.8 CP
+Median: 720.0 CP
+Std Dev: 7.0 CP
+Range: 63 CP
+
+ALL VALUES:
+Tournament 1: 707 CP
+Tournament 2: 715 CP
+Tournament 3: 720 CP
+Tournament 4: 712 CP
+Tournament 5: 720 CP
+Tournament 6: 720 CP
+Tournament 7: 720 CP
+Tournament 8: 720 CP
+Tournament 9: 662 CP
+Tournament 10: 720 CP
+Tournament 11: 700 CP
+Tournament 12: 717 CP
+Tournament 13: 719 CP
+Tournament 14: 715 CP
+Tournament 15: 720 CP
+Tournament 16: 725 CP
+Tournament 17: 720 CP
+Tournament 18: 720 CP
+Tournament 19: 714 CP
+Tournament 20: 720 CP
+Tournament 21: 725 CP
+Tournament 22: 712 CP
+Tournament 23: 720 CP
+Tournament 24: 720 CP
+Tournament 25: 720 CP
+Tournament 26: 710 CP
+Tournament 27: 702 CP
+Tournament 28: 720 CP
+Tournament 29: 717 CP
+Tournament 30: 717 CP
+Tournament 31: 720 CP
+Tournament 32: 720 CP
+Tournament 33: 720 CP
+Tournament 34: 720 CP
+Tournament 35: 720 CP
+Tournament 36: 720 CP
+Tournament 37: 720 CP
+Tournament 38: 720 CP
+Tournament 39: 710 CP
+Tournament 40: 720 CP
+Tournament 41: 720 CP
+Tournament 42: 720 CP
+Tournament 43: 720 CP
+Tournament 44: 712 CP
+Tournament 45: 720 CP
+Tournament 46: 720 CP
+Tournament 47: 720 CP
+Tournament 48: 720 CP
+Tournament 49: 725 CP
+Tournament 50: 720 CP
+Tournament 51: 720 CP
+Tournament 52: 720 CP
+Tournament 53: 716 CP
+Tournament 54: 720 CP
+Tournament 55: 720 CP
+Tournament 56: 722 CP
+Tournament 57: 717 CP
+Tournament 58: 720 CP
+Tournament 59: 720 CP
+Tournament 60: 707 CP
+Tournament 61: 717 CP
+Tournament 62: 722 CP
+Tournament 63: 720 CP
+Tournament 64: 720 CP
+Tournament 65: 725 CP
+Tournament 66: 720 CP
+Tournament 67: 720 CP
+Tournament 68: 720 CP
+Tournament 69: 720 CP
+Tournament 70: 715 CP
+Tournament 71: 720 CP
+Tournament 72: 721 CP
+Tournament 73: 717 CP
+Tournament 74: 719 CP
+Tournament 75: 720 CP
+Tournament 76: 715 CP
+Tournament 77: 720 CP
+Tournament 78: 715 CP
+Tournament 79: 720 CP
+Tournament 80: 720 CP
+Tournament 81: 715 CP
+Tournament 82: 710 CP
+Tournament 83: 720 CP
+Tournament 84: 720 CP
+Tournament 85: 720 CP
+Tournament 86: 721 CP
+Tournament 87: 720 CP
+Tournament 88: 720 CP
+Tournament 89: 720 CP
+Tournament 90: 725 CP
+Tournament 91: 721 CP
+Tournament 92: 720 CP
+Tournament 93: 720 CP
+Tournament 94: 717 CP
+Tournament 95: 720 CP
+Tournament 96: 720 CP
+Tournament 97: 712 CP
+Tournament 98: 715 CP
+Tournament 99: 720 CP
+Tournament 100: 715 CP
